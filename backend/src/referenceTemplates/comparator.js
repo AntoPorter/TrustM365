@@ -580,7 +580,13 @@ function buildSettingMappingsFromPerKeyMatches(relevant, perKeyMatches, liveMap)
   return buildSettingMappings(relevant, perKeyEvidence, liveMap);
 }
 
-const testsModule = require('./tests');
+let testsModule = {};
+try {
+  // Optional module: may be absent in lean/release builds.
+  testsModule = require('./tests');
+} catch (err) {
+  testsModule = {};
+}
 
 async function compareTemplateResources(template, liveMap) {
   const watched = template.watched_keys || [];
