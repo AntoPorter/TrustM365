@@ -258,8 +258,9 @@ npm run dev               # opens on http://localhost:5173
 git clone https://github.com/AntoPorter/trustm365.git
 cd trustm365
 npm run install:all
-npm run generate:key
-echo "ENCRYPTION_KEY=$(node scripts/generateKey.js)" >> .env
+npm run generate:key      # copy only the 64-char hex key output
+cp .env.example .env
+# edit .env and set: ENCRYPTION_KEY=<the key above>
 npm run dev
 ```
 
