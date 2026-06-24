@@ -1,20 +1,21 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, useNavigate, useLocation, Navigate } from 'react-router-dom'
 import Sidebar from './components/Sidebar.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
-import HomePage from './pages/HomePage.jsx'
-import Dashboard from './pages/Dashboard.jsx'
-import AreaView from './pages/AreaView.jsx'
-import BaselineEditor from './pages/BaselineEditor.jsx'
-import AddTenant from './pages/AddTenant.jsx'
-import Portfolio from './pages/Portfolio.jsx'
-import SecurityTemplates from './pages/SecurityTemplates.jsx'
-import ReferenceTemplates from './pages/ReferenceTemplates.jsx'
-import MsspSettings from './pages/MsspSettings.jsx'
-import AppRegistrations from './pages/AppRegistrations.jsx'
-import CustomCollectors from './pages/CustomCollectors.jsx'
-import Reports from './pages/Reports.jsx'
 import { tenantApi, areaApi, msspApi } from './api/client.js'
+
+const HomePage = lazy(() => import('./pages/HomePage.jsx'))
+const Dashboard = lazy(() => import('./pages/Dashboard.jsx'))
+const AreaView = lazy(() => import('./pages/AreaView.jsx'))
+const BaselineEditor = lazy(() => import('./pages/BaselineEditor.jsx'))
+const AddTenant = lazy(() => import('./pages/AddTenant.jsx'))
+const Portfolio = lazy(() => import('./pages/Portfolio.jsx'))
+const SecurityTemplates = lazy(() => import('./pages/SecurityTemplates.jsx'))
+const ReferenceTemplates = lazy(() => import('./pages/ReferenceTemplates.jsx'))
+const MsspSettings = lazy(() => import('./pages/MsspSettings.jsx'))
+const AppRegistrations = lazy(() => import('./pages/AppRegistrations.jsx'))
+const CustomCollectors = lazy(() => import('./pages/CustomCollectors.jsx'))
+const Reports = lazy(() => import('./pages/Reports.jsx'))
 
 // ── Brand hue application ─────────────────────────────────────────────────────
 export function applyBrandHue(hue) {
@@ -124,6 +125,10 @@ function AppShell() {
       .catch(() => {})
   }
 
+  const pageLoadingFallback = (
+    <div className="p-6 text-sm text-gray-500">Loading page...</div>
+  )
+
   return (
     <BrandingContext.Provider value={{ logoUrl, companyName, tagline, setLogoUrl, setCompanyName, setTagline }}>
     <div className="flex h-screen overflow-hidden" style={{ backgroundColor: 'var(--page-bg)' }}>
@@ -140,6 +145,7 @@ function AppShell() {
 
       <main className="flex-1 overflow-y-auto">
         <ErrorBoundary>
+        <Suspense fallback={pageLoadingFallback}>
         <Routes>
           <Route path="/home" element={
             <HomePage tenants={tenants} areas={areas} selectedTenant={selectedTenant} setSelectedTenant={setSelectedTenant} showToast={showToast} />
@@ -168,6 +174,7 @@ function AppShell() {
           } />
           <Route path="*" element={<Navigate to="/home" replace />} />
         </Routes>
+        </Suspense>
         </ErrorBoundary>
       </main>
 

@@ -1,11 +1,10 @@
 {
   "name": "trustm365-backend",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "main": "src/index.js",
   "scripts": {
     "dev": "npx nodemon src/index.js",
-    "start": "node src/index.js",
-    "test": "jest --testPathPatterns='test/' --forceExit"
+    "start": "node src/index.js"
   },
   "dependencies": {
     "@azure/msal-node": "^2.6.6",
@@ -15,7 +14,7 @@
     "express": "^4.19.2",
     "helmet": "^7.1.0",
     "luxon": "^3.7.2",
-    "multer": "^2.1.1",
+    "multer": "^2.2.0",
     "node-cron": "^3.0.3",
     "pino": "^9.0.0",
     "pino-pretty": "^11.0.0",
@@ -28,7 +27,6 @@
   },
   "devDependencies": {
     "eslint": "^10.2.1",
-    "jest": "^30.3.0",
     "nodemon": "^3.1.0"
   }
 }

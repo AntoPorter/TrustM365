@@ -4,7 +4,7 @@
   "eventCategory": "drift",
   "schemaVersion": "1.0",
   "sourcePlatform": "TrustM365",
-  "sourceVersion": "1.1.0",
+  "sourceVersion": "1.2.0",
   "tenantDbId": "2be8a2cc-fb8f-4884-9f4b-d4c7618cb6ef",
   "tenantId": "0f6eb64b-2d58-4d17-bfc6-4ce5a7ebcab2",
   "areaKey": "entra_ca",

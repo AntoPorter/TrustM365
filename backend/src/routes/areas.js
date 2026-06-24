@@ -330,10 +330,37 @@ router.get('/:tenantId/:areaKey/drift', (req, res) => {
   const baseline = db.prepare('SELECT watched_keys FROM baselines WHERE tenant_id = ? AND area_key = ?')
     .get(req.params.tenantId, req.params.areaKey);
 
+  const webhookDeliveries = db.prepare(`
+    SELECT webhook_id, webhook_label, fire_mode, outcome, reason, error_message, http_status, attempted_at
+    FROM webhook_delivery_events
+    WHERE drift_result_id = ?
+    ORDER BY attempted_at DESC
+  `).all(drift.id);
+
+  const webhookDeliverySummary = webhookDeliveries.reduce((acc, item) => {
+    acc.attempted += 1;
+    if (item.outcome === 'sent') acc.sent += 1;
+    else if (item.outcome === 'failed') acc.failed += 1;
+    else if (item.outcome === 'not_sent') acc.notSent += 1;
+    if (!acc.lastAttemptAt) acc.lastAttemptAt = item.attempted_at;
+    return acc;
+  }, { attempted: 0, sent: 0, failed: 0, notSent: 0, lastAttemptAt: null });
+
   res.json({
     ...drift,
     summary: JSON.parse(drift.summary || '[]'),
-    watchedKeys: JSON.parse(baseline?.watched_keys || '[]')
+    watchedKeys: JSON.parse(baseline?.watched_keys || '[]'),
+    webhookDeliverySummary,
+    webhookDeliveries: webhookDeliveries.map(item => ({
+      webhookId: item.webhook_id,
+      webhookLabel: item.webhook_label || '',
+      fireMode: item.fire_mode || '',
+      outcome: item.outcome,
+      reason: item.reason || '',
+      errorMessage: item.error_message,
+      httpStatus: item.http_status,
+      attemptedAt: item.attempted_at,
+    }))
   });
 });
 

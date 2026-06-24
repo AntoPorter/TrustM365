@@ -2,9 +2,10 @@ require('dotenv').config({ path: require('path').resolve(__dirname, '../../../.e
 const path = require('path');
 const { openDatabase } = require('./sqlite');
 
+const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 const DB_PATH = process.env.DATABASE_PATH
-  ? path.resolve(process.env.DATABASE_PATH)
-  : path.resolve(__dirname, '../../../data/trustm365.db');
+  ? path.resolve(PROJECT_ROOT, process.env.DATABASE_PATH)
+  : path.resolve(PROJECT_ROOT, 'data/trustm365.db');
 
 let db = null;
 
@@ -410,6 +411,28 @@ async function initDatabase() {
       PRIMARY KEY (webhook_id, tenant_id, area_key),
       FOREIGN KEY (webhook_id) REFERENCES webhook_destinations(id) ON DELETE CASCADE
     );
+
+    -- Per-drift webhook delivery outcomes (sent, failed, or not sent)
+    CREATE TABLE IF NOT EXISTS webhook_delivery_events (
+      id             TEXT PRIMARY KEY,
+      drift_result_id TEXT NOT NULL,
+      webhook_id     TEXT,
+      webhook_label  TEXT NOT NULL DEFAULT '',
+      fire_mode      TEXT NOT NULL DEFAULT '',
+      tenant_id      TEXT NOT NULL,
+      area_key       TEXT NOT NULL,
+      outcome        TEXT NOT NULL,
+      reason         TEXT NOT NULL DEFAULT '',
+      error_message  TEXT,
+      http_status    INTEGER,
+      attempted_at   TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (drift_result_id) REFERENCES drift_results(id) ON DELETE CASCADE,
+      FOREIGN KEY (webhook_id) REFERENCES webhook_destinations(id) ON DELETE SET NULL,
+      FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_webhook_delivery_drift ON webhook_delivery_events(drift_result_id, attempted_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_webhook_delivery_area ON webhook_delivery_events(tenant_id, area_key, attempted_at DESC);
+
     -- tenant_id NULL = portfolio report (all tenants)
     CREATE TABLE IF NOT EXISTS reports (
       id              TEXT PRIMARY KEY,

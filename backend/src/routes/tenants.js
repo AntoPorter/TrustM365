@@ -13,6 +13,12 @@ const { rotateTenantAuthSecret, resolveTenantAuthContext } = require('../service
 const logger = require('../utils/logger');
 const router = express.Router();
 
+function asyncRoute(handler) {
+  return function routeHandler(req, res, next) {
+    Promise.resolve(handler(req, res, next)).catch(next);
+  };
+}
+
 const TenantSchema = z.object({
   displayName: z.string().min(1).max(100),
   tenantId: z.string().uuid(),
@@ -66,7 +72,7 @@ router.get('/', (req, res) => {
 });
 
 // ── Register tenant ───────────────────────────────────────────────────────────
-router.post('/', async (req, res) => {
+router.post('/', asyncRoute(async (req, res) => {
   const parsed = TenantSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() });
   const { displayName, tenantId, clientId, clientSecret } = parsed.data;
@@ -130,10 +136,10 @@ router.post('/', async (req, res) => {
     WHERE t.id = ?
   `).get(id);
   res.status(201).json({ ...tenant, tags: JSON.parse(tenant.tags || '[]') });
-});
+}));
 
 // ── Check permissions using existing app registration ────────────────────────
-router.post('/check-permissions-with-app', async (req, res) => {
+router.post('/check-permissions-with-app', asyncRoute(async (req, res) => {
   const parsed = CheckPermissionsWithAppSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() });
   const { tenantId, appRegistrationId, authorityTenantId } = parsed.data;
@@ -153,10 +159,10 @@ router.post('/check-permissions-with-app', async (req, res) => {
     logger.warn({ err, authority, appRegistrationId }, 'Permission check with app registration failed');
     res.status(400).json({ error: 'Credential validation failed', message: err.message });
   }
-});
+}));
 
 // ── Register tenant using an existing shared app registration ────────────────
-router.post('/with-app', async (req, res) => {
+router.post('/with-app', asyncRoute(async (req, res) => {
   const parsed = TenantWithAppSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() });
 
@@ -210,7 +216,7 @@ router.post('/with-app', async (req, res) => {
   `).get(id);
 
   res.status(201).json({ ...tenant, tags: JSON.parse(tenant.tags || '[]') });
-});
+}));
 
 // ── Delete tenant ─────────────────────────────────────────────────────────────
 router.delete('/:id', (req, res) => {
@@ -224,7 +230,7 @@ router.delete('/:id', (req, res) => {
 });
 
 // ── Update tenant credentials (rotate client secret) ─────────────────────────
-router.patch('/:id/credentials', async (req, res) => {
+router.patch('/:id/credentials', asyncRoute(async (req, res) => {
   const db = getDb();
   const { clientSecret } = req.body;
   if (!clientSecret?.trim()) return res.status(400).json({ error: 'clientSecret is required' });
@@ -250,7 +256,7 @@ router.patch('/:id/credentials', async (req, res) => {
     logger.warn({ err, tenantId: tenant.tenant_id }, 'Credential rotation failed — new secret rejected');
     res.status(400).json({ error: `Credential validation failed: ${err.message}` });
   }
-});
+}));
 
 // ── Update tenant settings ────────────────────────────────────────────────────
 router.patch('/:id/settings', (req, res) => {
@@ -370,7 +376,7 @@ router.get('/portfolio', (req, res) => {
 });
 
 // ── MSSP: Bulk sync — all tenants, all areas, parallel ───────────────────────
-router.post('/bulk-sync', async (req, res) => {
+router.post('/bulk-sync', asyncRoute(async (req, res) => {
   const db = getDb();
   const tenants = db.prepare('SELECT id FROM tenants').all();
   if (tenants.length === 0) return res.status(400).json({ error: 'No tenants registered' });
@@ -418,7 +424,7 @@ router.post('/bulk-sync', async (req, res) => {
     .run(successCount, tenants.length - successCount, JSON.stringify(results), logId);
 
   logger.info({ logId, successCount, total: tenants.length }, 'Bulk sync complete');
-});
+}));
 
 // ── MSSP: Get bulk sync status ────────────────────────────────────────────────
 router.get('/bulk-sync/:id', (req, res) => {
@@ -500,7 +506,7 @@ router.get('/export/drift-report', (req, res) => {
 // POST /api/tenants/check-permissions  (pre-save, body: {tenantId, clientId, clientSecret})
 // GET  /api/tenants/:id/permissions    (existing tenant, re-check)
 
-router.post('/check-permissions', async (req, res) => {
+router.post('/check-permissions', asyncRoute(async (req, res) => {
   const { tenantId, clientId, clientSecret } = req.body;
   if (!tenantId || !clientId || !clientSecret) {
     return res.status(400).json({ error: 'tenantId, clientId, and clientSecret are required' });
@@ -514,9 +520,9 @@ router.post('/check-permissions', async (req, res) => {
     logger.warn({ err }, 'Permission check failed');
     res.status(400).json({ error: err.message });
   }
-});
+}));
 
-router.get('/:id/permissions', async (req, res) => {
+router.get('/:id/permissions', asyncRoute(async (req, res) => {
   const db = getDb();
   const tenant = db.prepare('SELECT * FROM tenants WHERE id = ?').get(req.params.id);
   if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
@@ -535,13 +541,13 @@ router.get('/:id/permissions', async (req, res) => {
     logger.error({ err }, 'Permission re-check failed');
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
 // ── POST /api/tenants/:id/refresh-permissions — force live Graph re-check ─────
 // Fetches currently granted app role assignments from Graph, rebuilds the area
 // permission map with the latest ReadWrite→Read implication logic, and persists
 // the result. Call this after adding new permissions to the App Registration.
-router.post('/:id/refresh-permissions', async (req, res) => {
+router.post('/:id/refresh-permissions', asyncRoute(async (req, res) => {
   const db = getDb();
   const tenant = db.prepare('SELECT * FROM tenants WHERE id = ?').get(req.params.id);
   if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
@@ -563,21 +569,21 @@ router.post('/:id/refresh-permissions', async (req, res) => {
     logger.error({ err }, 'Permission refresh failed');
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
 // ── Tenant overview — live stats for the dashboard summary panel ──────────────
 // GET  /api/tenants/:id/overview      → return cached overview from last snapshot
 // POST /api/tenants/:id/overview/refresh → pull fresh stats from Graph API
 
-router.get('/:id/overview', async (req, res) => {
+router.get('/:id/overview', asyncRoute(async (req, res) => {
   const cached = overviewCache.get(req.params.id);
   if (cached) return res.json(cached);
 
   // No cache yet — trigger a fresh pull and return loading state
   res.json({ loading: true, message: 'Overview not yet fetched. POST /overview/refresh to load.' });
-});
+}));
 
-router.post('/:id/overview/refresh', async (req, res) => {
+router.post('/:id/overview/refresh', asyncRoute(async (req, res) => {
   const db = getDb();
   const tenant = db.prepare('SELECT * FROM tenants WHERE id = ?').get(req.params.id);
   if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
@@ -593,7 +599,7 @@ router.post('/:id/overview/refresh', async (req, res) => {
     logger.error({ err, tenantId: tenant.tenant_id }, 'Overview refresh failed');
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
 // ── Tenant insights — extended Graph metrics (auth methods, MFA, device compliance) ──
 // POST /api/tenants/:id/insights — fetch and return live insights (no cache, on-demand)
@@ -604,7 +610,7 @@ router.get('/:id/insights', (req, res) => {
   res.json({ loading: true, message: 'Insights not yet fetched. POST /insights to load.' });
 });
 
-router.post('/:id/insights', async (req, res) => {
+router.post('/:id/insights', asyncRoute(async (req, res) => {
   const db = getDb();
   const tenant = db.prepare('SELECT * FROM tenants WHERE id = ?').get(req.params.id);
   if (!tenant) return res.status(404).json({ error: 'Tenant not found' });
@@ -619,6 +625,6 @@ router.post('/:id/insights', async (req, res) => {
     logger.error({ err, tenantId: tenant.tenant_id }, 'Insights fetch failed');
     res.status(500).json({ error: err.message });
   }
-});
+}));
 
 module.exports = router;

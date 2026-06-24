@@ -473,6 +473,8 @@ Each destination has a URL, label, scope (a specific tenant or all tenants), and
 
 Click the **✈ Test** button on any destination to send a labelled test payload and confirm delivery. The last fired time and any delivery errors are shown on the destination card.
 
+For drift-specific outcomes, open the affected area and check **Configuration → Webhook Notification Status**. This panel shows attempted/sent/failed/not-sent counts and expandable per-destination reasons for the latest drift result.
+
 Payload format is JSON — compatible with Microsoft Teams Workflows incoming webhooks, Slack, and PagerDuty out of the box.
 
 See [Guide 12 — Webhook notifications](guides/12-webhook-notifications.md) for payload schema and integration examples.

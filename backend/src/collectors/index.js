@@ -577,8 +577,16 @@ const exchangeConnectors = {
 
   async pull(token) {
     const raw = process.env[DEFAULT_ENV] || '';
-    const endpoints = [`${BETA_URL}/connectors`].concat(raw.split(',').map(s => s.trim()).filter(Boolean));
+    const endpoints = raw.split(',').map(s => s.trim()).filter(Boolean);
+    if (endpoints.length === 0) {
+      throw new CollectorUnavailableError(
+        'Mail Flow Connectors',
+        'Mail flow connectors are not exposed through Microsoft Graph app-only endpoints by default. Configure EXCHANGE_CONNECTORS_ENDPOINTS with explicit tenant-supported endpoints to enable this collector.'
+      );
+    }
     const resources = {};
+    let successfulPulls = 0;
+    const endpointErrors = [];
 
     for (const ep of endpoints) {
       let path = ep;
@@ -589,7 +597,13 @@ const exchangeConnectors = {
       }
 
       let items;
-      try { items = await graphGetAll(token, path); } catch (err) { continue; }
+      try {
+        items = await graphGetAll(token, path);
+        successfulPulls++;
+      } catch (err) {
+        endpointErrors.push(`${path}: ${err?.message || 'request failed'}`);
+        continue;
+      }
       if (!Array.isArray(items) || items.length === 0) continue;
       for (const it of items) {
         const id = it.id || it.name || it.connectorId || (`connector_${Math.random().toString(36).slice(2,9)}`);
@@ -599,11 +613,32 @@ const exchangeConnectors = {
       }
     }
 
+    if (successfulPulls === 0) {
+      const detail = endpointErrors.slice(0, 3).join(' | ');
+      throw new CollectorUnavailableError(
+        'Mail Flow Connectors',
+        detail
+          ? `Configured connector endpoints are not reachable in this tenant context. ${detail}`
+          : 'Configured connector endpoints are not reachable in this tenant context.'
+      );
+    }
+
     return resources;
   },
 
   async get(token, resourceId) {
-    const tryPaths = [ `${BETA_URL}/connectors/${resourceId}`, `/beta/connectors/${resourceId}`, `/connectors/${resourceId}` ];
+    const raw = process.env[DEFAULT_ENV] || '';
+    const endpoints = raw.split(',').map(s => s.trim()).filter(Boolean);
+    const tryPaths = endpoints.map(ep => {
+      let path = ep;
+      if (!path.startsWith('http')) {
+        if (path.startsWith('beta:')) path = `${BETA_URL}${path.slice(5)}`;
+        else if (path.startsWith('/beta')) path = `${BETA_URL}${path.slice(5)}`;
+        else if (!path.startsWith('/')) path = `/${path}`;
+      }
+      if (path.includes('{id}')) return path.replace('{id}', encodeURIComponent(resourceId));
+      return `${path.replace(/\/$/, '')}/${encodeURIComponent(resourceId)}`;
+    });
     for (const p of tryPaths) {
       try {
         const it = await graphGet(token, p).catch(() => null);
@@ -638,8 +673,16 @@ const exchangeTransportRules = {
 
   async pull(token) {
     const raw = process.env[DEFAULT_ENV_TR] || '';
-    const endpoints = [`${BETA_URL}/transportRules`].concat(raw.split(',').map(s => s.trim()).filter(Boolean));
+    const endpoints = raw.split(',').map(s => s.trim()).filter(Boolean);
+    if (endpoints.length === 0) {
+      throw new CollectorUnavailableError(
+        'Transport Rules',
+        'Exchange transport rules are not exposed through Microsoft Graph app-only endpoints by default. Configure EXCHANGE_TRANSPORT_RULES_ENDPOINTS with explicit tenant-supported endpoints to enable this collector.'
+      );
+    }
     const resources = {};
+    let successfulPulls = 0;
+    const endpointErrors = [];
     for (const ep of endpoints) {
       let path = ep;
       if (!path.startsWith('http')) {
@@ -649,7 +692,13 @@ const exchangeTransportRules = {
       }
 
       let items;
-      try { items = await graphGetAll(token, path); } catch (err) { continue; }
+      try {
+        items = await graphGetAll(token, path);
+        successfulPulls++;
+      } catch (err) {
+        endpointErrors.push(`${path}: ${err?.message || 'request failed'}`);
+        continue;
+      }
       if (!Array.isArray(items) || items.length === 0) continue;
       for (const it of items) {
         const id = it.id || it.ruleId || it.name || (`rule_${Math.random().toString(36).slice(2,9)}`);
@@ -666,11 +715,33 @@ const exchangeTransportRules = {
         };
       }
     }
+
+    if (successfulPulls === 0) {
+      const detail = endpointErrors.slice(0, 3).join(' | ');
+      throw new CollectorUnavailableError(
+        'Transport Rules',
+        detail
+          ? `Configured transport rule endpoints are not reachable in this tenant context. ${detail}`
+          : 'Configured transport rule endpoints are not reachable in this tenant context.'
+      );
+    }
+
     return resources;
   },
 
   async get(token, resourceId) {
-    const tryPaths = [ `${BETA_URL}/transportRules/${resourceId}`, `/beta/transportRules/${resourceId}`, `/transportRules/${resourceId}` ];
+    const raw = process.env[DEFAULT_ENV_TR] || '';
+    const endpoints = raw.split(',').map(s => s.trim()).filter(Boolean);
+    const tryPaths = endpoints.map(ep => {
+      let path = ep;
+      if (!path.startsWith('http')) {
+        if (path.startsWith('beta:')) path = `${BETA_URL}${path.slice(5)}`;
+        else if (path.startsWith('/beta')) path = `${BETA_URL}${path.slice(5)}`;
+        else if (!path.startsWith('/')) path = `/${path}`;
+      }
+      if (path.includes('{id}')) return path.replace('{id}', encodeURIComponent(resourceId));
+      return `${path.replace(/\/$/, '')}/${encodeURIComponent(resourceId)}`;
+    });
     for (const p of tryPaths) {
       try {
         const it = await graphGet(token, p).catch(() => null);
@@ -1252,6 +1323,12 @@ class LicenceUnavailableError extends Error {
   constructor(featureName) {
     super(`${featureName} is not available on this tenant's current licence tier.`);
     this.code = 'LICENCE_UNAVAILABLE';
+  }
+}
+class CollectorUnavailableError extends Error {
+  constructor(featureName, detail = '') {
+    super(detail ? `${featureName} is currently unavailable. ${detail}` : `${featureName} is currently unavailable.`);
+    this.code = 'COLLECTOR_UNAVAILABLE';
   }
 }
 
@@ -2673,7 +2750,15 @@ function getAllCollectors() {
   } catch { return builtin; }
 }
 
-module.exports = { COLLECTORS, ALL_PERMISSIONS, getCollector, getAllCollectors, LicenceUnavailableError, isLicenceError };
+module.exports = {
+  COLLECTORS,
+  ALL_PERMISSIONS,
+  getCollector,
+  getAllCollectors,
+  LicenceUnavailableError,
+  CollectorUnavailableError,
+  isLicenceError,
+};
 
 // Also expose individual collectors at top-level keyed by their areaKey
 for (const key of Object.keys(COLLECTORS)) {

@@ -4,6 +4,56 @@ All notable changes to TrustM365 are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.2.0] - Unreleased
+
+### Scope
+
+- All changes delivered after v1.1.0 are tracked as part of v1.2.0.
+
+### Feature Highlights
+
+- Per-drift webhook delivery status in Area View (Configuration tab):
+  - New "Webhook Notification Status" panel with sent, failed, and not-sent counters for the latest drift result.
+  - Expandable per-destination outcome rows with fire mode, reason, HTTP status, and error details.
+  - Explicit not-sent reasons for skipped first-mode, disabled destinations, and no applicable destinations.
+- Drift details API enrichment:
+  - `GET /api/areas/:tenantId/:areaKey/drift` now includes `webhookDeliverySummary` and `webhookDeliveries` for the latest drift check.
+- Backend delivery-event persistence:
+  - Added `webhook_delivery_events` table to persist webhook outcomes per drift result for auditability and UI visibility.
+
+### Bug Fixes
+
+- Fixed tenant onboarding crash after **Validate -> Next**:
+  - Added async route error wrapping for tenant API handlers so unhandled promise rejections are forwarded to Express error middleware instead of terminating the backend process.
+  - Prevents dev/proxy cascade failures (`502`, `ECONNREFUSED`) caused by backend process exits during tenant registration flows.
+- Fixed build-version consistency for release visibility:
+  - Pinned frontend production build version via `frontend/.env.production` (`VITE_APP_BUILD_VERSION=v1.2.0`) so the sidebar build label remains aligned with the milestone/release metadata.
+
+### Security
+
+- Remediated dependency vulnerabilities identified during v1.2.0 release preparation:
+  - Backend: upgraded `multer` to `^2.2.0` to address high-severity DoS advisory coverage for versions `< 2.2.0`.
+  - Frontend: upgraded `vite` to `^8.1.0` to move past Windows path-handling advisory ranges affecting older `8.0.x` releases.
+  - Frontend: upgraded `axios` and added an explicit `overrides` pin for `form-data` (`^4.0.6`) to remove the high-severity CRLF multipart injection range (`< 4.0.6`).
+  - Lockfiles refreshed (`backend/package-lock.json`, `frontend/package-lock.json`) and `npm audit` now reports `0` high vulnerabilities for both backend and frontend.
+
+### Maintenance
+
+- Repository release-prep cleanup for v1.2.0:
+  - Removed legacy test assets and test-results directories from backend/frontend workspaces.
+  - Removed obsolete test scripts from package manifests.
+  - Removed unused test-only dependencies and stale empty folders created by historical test/screenshot runs.
+
+### Build Optimizations
+
+- Improved frontend code-splitting with route-level lazy loading:
+  - Converted primary app routes to lazy-loaded pages with `React.lazy` + `Suspense` so heavy views are loaded on demand.
+  - Reduced the main entry bundle footprint (now split into page chunks with a smaller initial `index` chunk).
+- Removed ineffective dynamic import path in baseline export flow:
+  - Replaced mixed static + dynamic import usage of `reportApi` in `BaselineExportModal` to eliminate Vite's ineffective dynamic import warning.
+- Cleaned PostCSS module parsing warning in production build:
+  - Switched `frontend/postcss.config.js` to CommonJS export format to avoid Node reparsing/module-type warning noise during Vite builds.
+
 ## [1.1.0] — 2026-06-05
 
 ### Release Notes

@@ -138,7 +138,7 @@ async function emitSiemEvent(category, eventType, payload = {}, overrideSettings
     eventCategory: category,
     schemaVersion: settings.schemaVersion,
     sourcePlatform: 'TrustM365',
-    sourceVersion: '1.1.0',
+    sourceVersion: '1.2.0',
     ...payload,
   };
 
@@ -170,7 +170,7 @@ async function testConnection(overrides = {}) {
     eventCategory: 'jobs',
     schemaVersion: merged.schemaVersion,
     sourcePlatform: 'TrustM365',
-    sourceVersion: '1.1.0',
+    sourceVersion: '1.2.0',
     status: 'ok',
     message: 'Connection test from TrustM365 MSSP Settings',
   };

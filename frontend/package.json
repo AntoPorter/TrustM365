@@ -1,42 +1,29 @@
 {
   "name": "trustm365-frontend",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "scripts": {
     "dev": "npx vite",
     "build": "npx vite build",
     "preview": "npx vite preview",
-    "test": "vitest run --config vitest.config.js",
-    "test:watch": "vitest --config vitest.config.js --watch",
-    "screenshots:install": "npx playwright install chromium",
-    "screenshots:go-live": "node tests/playwright/run-go-live-screenshots.js"
+    "screenshots:install": "npx playwright install chromium"
   },
   "dependencies": {
-    "axios": "^1.6.8",
+    "axios": "^1.18.1",
     "lucide-react": "^0.383.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.22.0",
     "recharts": "^2.12.4"
   },
+  "overrides": {
+    "form-data": "^4.0.6"
+  },
   "devDependencies": {
-    "@playwright/test": "^1.59.1",
-    "@testing-library/jest-dom": "^6.0.0",
-    "@testing-library/react": "^14.0.0",
-    "@testing-library/user-event": "^14.6.1",
     "@vitejs/plugin-react": "^6.0.2",
     "autoprefixer": "^10.4.19",
-    "jsdom": "^29.1.1",
     "playwright": "^1.59.1",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.3",
-    "vite": "^8.0.13",
-    "vitest": "^4.1.6"
-  },
-  "vitest": {
-    "test": {
-      "environment": "jsdom",
-      "globals": true,
-      "setupFiles": "src/setupTests.js"
-    }
+    "vite": "^8.1.0"
   }
 }

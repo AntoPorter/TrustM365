@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Shield, ExternalLink, CheckCircle, XCircle, Lock, Unlock,
   ChevronRight, AlertTriangle, RefreshCw, Eye, EyeOff
@@ -169,7 +170,8 @@ const WORKLOAD_PERMISSIONS = [
 // ── Main page ─────────────────────────────────────────────────────────────────
 const STEPS = ['App Registration', 'Credentials', 'Permissions']
 
-export default function AddTenant({ navigate, showToast, onAdd }) {
+export default function AddTenant({ navigate: propNavigate, showToast, onAdd }) {
+  const routerNavigate = useNavigate()
   const [step, setStep]         = useState(0)
   const [mode, setMode]         = useState('new') // new | existing
   const [form, setForm]         = useState({
@@ -329,6 +331,14 @@ export default function AddTenant({ navigate, showToast, onAdd }) {
   const unlockedCount  = permData?.areas?.filter(a => a.canRead).length ?? 0
   const totalCount     = permData?.areas?.length ?? 0
   const allLocked      = permData && unlockedCount === 0
+
+  const handleCancel = () => {
+    if (typeof propNavigate === 'function') {
+      propNavigate('dashboard')
+      return
+    }
+    routerNavigate('/')
+  }
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
@@ -723,7 +733,7 @@ export default function AddTenant({ navigate, showToast, onAdd }) {
       {/* Navigation */}
       <div className="flex justify-between mt-6">
         <button
-          onClick={() => step > 0 ? setStep(s => s - 1) : navigate('dashboard')}
+          onClick={() => step > 0 ? setStep(s => s - 1) : handleCancel()}
           className="btn-secondary"
           disabled={checking || submitting}>
           {step === 0 ? 'Cancel' : '← Back'}

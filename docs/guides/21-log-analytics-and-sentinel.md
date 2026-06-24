@@ -4,7 +4,7 @@ This guide walks through configuring TrustM365 to export telemetry to Log Analyt
 
 ## Prerequisites
 
-- TrustM365 v1.1.0+
+- TrustM365 v1.2.0+
 - Azure Log Analytics workspace
 - Microsoft Sentinel enabled on that workspace
 - Workspace ID and primary shared key

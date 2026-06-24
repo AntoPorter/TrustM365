@@ -22,9 +22,24 @@
 
 const https  = require('https');
 const http   = require('http');
+const { v4: uuidv4 } = require('uuid');
 const { getDb } = require('../database/init');
 const logger = require('../utils/logger');
 const { emitSiemEvent } = require('../services/logAnalytics');
+
+const WEBHOOK_OUTCOME = Object.freeze({
+  SENT: 'sent',
+  FAILED: 'failed',
+  NOT_SENT: 'not_sent',
+});
+
+const WEBHOOK_REASON = Object.freeze({
+  DELIVERED: 'delivered',
+  DELIVERY_FAILED: 'delivery_failed',
+  SKIPPED_FIRST_MODE: 'skipped_first_mode',
+  DISABLED: 'disabled',
+  NO_APPLICABLE_DESTINATIONS: 'no_applicable_destinations',
+});
 
 // ── Build the drift payload ──────────────────────────────────────────────────
 function buildPayload(tenant, area, driftResult) {
@@ -83,7 +98,9 @@ function deliverPayload(url, payload) {
       if (res.statusCode >= 200 && res.statusCode < 300) {
         resolve({ ok: true, status: res.statusCode });
       } else {
-        reject(new Error(`HTTP ${res.statusCode}`));
+        const err = new Error(`HTTP ${res.statusCode}`);
+        err.statusCode = res.statusCode;
+        reject(err);
       }
     });
     req.on('error', reject);
@@ -93,8 +110,40 @@ function deliverPayload(url, payload) {
   });
 }
 
+function recordWebhookDeliveryEvent(db, {
+  driftResultId,
+  webhookId = null,
+  webhookLabel = '',
+  fireMode = '',
+  tenantDbId,
+  areaKey,
+  outcome,
+  reason,
+  errorMessage = null,
+  httpStatus = null,
+}) {
+  if (!driftResultId) return;
+  db.prepare(`
+    INSERT INTO webhook_delivery_events
+      (id, drift_result_id, webhook_id, webhook_label, fire_mode, tenant_id, area_key, outcome, reason, error_message, http_status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    uuidv4(),
+    driftResultId,
+    webhookId,
+    webhookLabel || '',
+    fireMode || '',
+    tenantDbId,
+    areaKey,
+    outcome,
+    reason || '',
+    errorMessage,
+    httpStatus
+  );
+}
+
 // ── Main: fire webhooks for a completed drift result ─────────────────────────
-async function fireWebhooksForDrift(tenantDbId, areaKey, driftResult) {
+async function fireWebhooksForDrift(tenantDbId, areaKey, driftResult, driftResultId = null) {
   if (!driftResult || driftResult.status !== 'drifted' || (driftResult.drift_count || 0) === 0) return;
 
   const db = getDb();
@@ -102,13 +151,39 @@ async function fireWebhooksForDrift(tenantDbId, areaKey, driftResult) {
   const area   = db.prepare('SELECT * FROM resource_areas WHERE tenant_id = ? AND area_key = ?').get(tenantDbId, areaKey);
   if (!tenant || !area) return;
 
-  // Fetch webhooks that apply to this tenant (tenant-specific + MSSP-wide)
-  const webhooks = db.prepare(`
+  // Fetch webhooks that apply to this tenant (tenant-specific + MSSP-wide).
+  // Keep disabled entries so we can report explicit "not sent" reasons.
+  const applicableWebhooks = db.prepare(`
     SELECT * FROM webhook_destinations
-    WHERE enabled = 1
-      AND (tenant_id = ? OR tenant_id IS NULL)
+    WHERE tenant_id = ? OR tenant_id IS NULL
   `).all(tenantDbId);
 
+  if (applicableWebhooks.length === 0) {
+    recordWebhookDeliveryEvent(db, {
+      driftResultId,
+      tenantDbId,
+      areaKey,
+      outcome: WEBHOOK_OUTCOME.NOT_SENT,
+      reason: WEBHOOK_REASON.NO_APPLICABLE_DESTINATIONS,
+    });
+    return;
+  }
+
+  const disabledWebhooks = applicableWebhooks.filter(wh => wh.enabled !== 1);
+  for (const wh of disabledWebhooks) {
+    recordWebhookDeliveryEvent(db, {
+      driftResultId,
+      webhookId: wh.id,
+      webhookLabel: wh.label,
+      fireMode: wh.fire_mode,
+      tenantDbId,
+      areaKey,
+      outcome: WEBHOOK_OUTCOME.NOT_SENT,
+      reason: WEBHOOK_REASON.DISABLED,
+    });
+  }
+
+  const webhooks = applicableWebhooks.filter(wh => wh.enabled === 1);
   if (webhooks.length === 0) return;
 
   const payload = buildPayload(tenant, area, driftResult);
@@ -121,6 +196,16 @@ async function fireWebhooksForDrift(tenantDbId, areaKey, driftResult) {
           'SELECT 1 FROM webhook_fired WHERE webhook_id = ? AND tenant_id = ? AND area_key = ?'
         ).get(wh.id, tenantDbId, areaKey);
         if (alreadyFired) {
+          recordWebhookDeliveryEvent(db, {
+            driftResultId,
+            webhookId: wh.id,
+            webhookLabel: wh.label,
+            fireMode: wh.fire_mode,
+            tenantDbId,
+            areaKey,
+            outcome: WEBHOOK_OUTCOME.NOT_SENT,
+            reason: WEBHOOK_REASON.SKIPPED_FIRST_MODE,
+          });
           emitSiemEvent('webhooks', 'webhook.delivery.skipped_first_mode', {
             webhookId: wh.id,
             tenantDbId,
@@ -130,11 +215,23 @@ async function fireWebhooksForDrift(tenantDbId, areaKey, driftResult) {
         }
       }
 
-      await deliverPayload(wh.url, payload);
+      const delivery = await deliverPayload(wh.url, payload);
 
       // Record successful delivery
       db.prepare("UPDATE webhook_destinations SET last_fired_at = datetime('now'), last_error = NULL WHERE id = ?")
         .run(wh.id);
+
+      recordWebhookDeliveryEvent(db, {
+        driftResultId,
+        webhookId: wh.id,
+        webhookLabel: wh.label,
+        fireMode: wh.fire_mode,
+        tenantDbId,
+        areaKey,
+        outcome: WEBHOOK_OUTCOME.SENT,
+        reason: WEBHOOK_REASON.DELIVERED,
+        httpStatus: delivery.status,
+      });
 
       // Mark as fired for 'first' mode
       if (wh.fire_mode === 'first') {
@@ -153,6 +250,18 @@ async function fireWebhooksForDrift(tenantDbId, areaKey, driftResult) {
     } catch (err) {
       db.prepare("UPDATE webhook_destinations SET last_error = ? WHERE id = ?")
         .run(err.message, wh.id);
+      recordWebhookDeliveryEvent(db, {
+        driftResultId,
+        webhookId: wh.id,
+        webhookLabel: wh.label,
+        fireMode: wh.fire_mode,
+        tenantDbId,
+        areaKey,
+        outcome: WEBHOOK_OUTCOME.FAILED,
+        reason: WEBHOOK_REASON.DELIVERY_FAILED,
+        errorMessage: err.message,
+        httpStatus: err.statusCode || null,
+      });
       logger.warn({ err, webhookId: wh.id, tenantId: tenant.tenant_id }, 'Webhook delivery failed');
       emitSiemEvent('webhooks', 'webhook.delivery.failed', {
         webhookId: wh.id,

@@ -147,12 +147,10 @@ export default function BaselineExportModal({ tenantId, onClose, showToast }) {
     if (!savedReport) return
     const win = window.open('', '_blank')
     // Re-fetch the saved HTML from the reports API
-    import('../api/client.js').then(({ reportApi: rApi }) => {
-      rApi.get(savedReport.id).then(full => {
-        win.document.write(full.html_content || '')
-        win.document.close()
-        setTimeout(() => win.print(), 400)
-      })
+    reportApi.get(savedReport.id).then(full => {
+      win.document.write(full.html_content || '')
+      win.document.close()
+      setTimeout(() => win.print(), 400)
     })
   }
 

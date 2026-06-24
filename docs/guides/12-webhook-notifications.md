@@ -44,6 +44,8 @@ After saving, click the **Send test** (✈) button on the destination card. Trus
 
 The card updates with the timestamp of the last successful delivery and any error messages.
 
+Note: MSSP Settings cards show destination-level latest status. For drift-specific delivery results, open the relevant area and check **Area View → Configuration → Webhook Notification Status**.
+
 ---
 
 ## Payload format
@@ -119,6 +121,18 @@ TrustM365's JSON payload is compatible with the Teams Workflows webhook format d
 | **Delete** | Click the 🗑 button — permanently removes the destination and all fired state |
 
 When a webhook delivery fails, the error message is shown on the destination card. The next qualifying sync will retry delivery.
+
+---
+
+## Drift-specific delivery visibility
+
+In addition to destination cards in MSSP Settings, TrustM365 records delivery outcomes for each drift check and exposes them in Area View.
+
+Open an area with drift and review **Webhook Notification Status** in the Configuration tab to see:
+
+- aggregate counts (attempted, sent, failed, not sent)
+- last attempt time
+- per-destination outcome details and reasons (including skipped first-detection mode and disabled destinations)
 
 ---
 

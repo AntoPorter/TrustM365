@@ -8,7 +8,7 @@ import {
 import { tenantApi, reportApi } from '../api/client.js'
 import { useBranding } from '../App.jsx'
 
-const PLATFORM_BUILD_VERSION = String(import.meta.env.VITE_APP_BUILD_VERSION || 'v1.1.0').trim()
+const PLATFORM_BUILD_VERSION = String(import.meta.env.VITE_APP_BUILD_VERSION || 'v1.2.0').trim()
 const PLATFORM_REPOSITORY_URL = 'https://github.com/AntoPorter/trustm365'
 
 // Area groupings matching Dashboard

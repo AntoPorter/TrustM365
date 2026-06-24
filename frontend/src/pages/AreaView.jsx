@@ -665,6 +665,7 @@ export default function AreaView({ showToast, onSync }) {
   const [resourceStatusFilter, setResourceStatusFilter] = useState('all') // all | drifted | clean
   const [resourceDetails,      setResourceDetails]      = useState({})
   const [resourceDetailsLoading, setResourceDetailsLoading] = useState({})
+  const [webhookDetailsOpen, setWebhookDetailsOpen] = useState(false)
   const { poll } = usePollJob()
 
   // ── Load metadata ──────────────────────────────────────────────────────────
@@ -1008,6 +1009,38 @@ export default function AreaView({ showToast, onSync }) {
 
   const hasActiveResourceFilter = !!(resourceSearch || resourceStatusFilter !== 'all')
 
+  const webhookDeliverySummary = drift?.webhookDeliverySummary || {
+    attempted: 0,
+    sent: 0,
+    failed: 0,
+    notSent: 0,
+    lastAttemptAt: null,
+  }
+  const webhookDeliveries = Array.isArray(drift?.webhookDeliveries) ? drift.webhookDeliveries : []
+  const formatTimestamp = (iso) => {
+    if (!iso) return '—'
+    try {
+      return new Intl.DateTimeFormat('en-AU', { dateStyle: 'medium', timeStyle: 'short', timeZone: timezone }).format(new Date(iso))
+    } catch {
+      return iso
+    }
+  }
+  const labelWebhookReason = (reason) => {
+    switch (reason) {
+      case 'delivered': return 'Delivered'
+      case 'delivery_failed': return 'Delivery failed'
+      case 'skipped_first_mode': return 'Already sent for this drift cycle (first mode)'
+      case 'disabled': return 'Destination disabled'
+      case 'no_applicable_destinations': return 'No applicable webhook destinations'
+      default: return reason ? reason.replace(/_/g, ' ') : '—'
+    }
+  }
+  const labelWebhookMode = (mode) => {
+    if (mode === 'first') return 'First only'
+    if (mode === 'every') return 'Every drift'
+    return 'System'
+  }
+
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-5">
 
@@ -1227,6 +1260,92 @@ export default function AreaView({ showToast, onSync }) {
                   ))}
                 </div>
               )}
+
+              {/* Webhook delivery status for this drift check */}
+              <div className="card-sm border border-gray-800 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-white">Webhook Notification Status</div>
+                    <div className="text-xs text-gray-500 mt-0.5">
+                      Last attempt: <span className="text-gray-400">{formatTimestamp(webhookDeliverySummary.lastAttemptAt)}</span>
+                    </div>
+                  </div>
+                  {webhookDeliveries.length > 0 && (
+                    <button
+                      onClick={() => setWebhookDetailsOpen(v => !v)}
+                      className="text-xs text-gray-400 hover:text-gray-200 transition-colors flex items-center gap-1"
+                    >
+                      {webhookDetailsOpen ? 'Hide details' : `Show details (${webhookDeliveries.length})`}
+                      <ChevronDown size={12} className={`transition-transform ${webhookDetailsOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-4 gap-2 text-center">
+                  <div className="rounded-lg border border-gray-800 bg-gray-900/40 px-2 py-2">
+                    <div className="text-sm font-semibold text-white">{webhookDeliverySummary.attempted}</div>
+                    <div className="text-[11px] text-gray-500 mt-0.5">Attempted</div>
+                  </div>
+                  <div className="rounded-lg border border-green-900/40 bg-green-950/20 px-2 py-2">
+                    <div className="text-sm font-semibold text-green-300">{webhookDeliverySummary.sent}</div>
+                    <div className="text-[11px] text-green-500/80 mt-0.5">Sent</div>
+                  </div>
+                  <div className="rounded-lg border border-red-900/40 bg-red-950/20 px-2 py-2">
+                    <div className="text-sm font-semibold text-red-300">{webhookDeliverySummary.failed}</div>
+                    <div className="text-[11px] text-red-500/80 mt-0.5">Failed</div>
+                  </div>
+                  <div className="rounded-lg border border-yellow-900/40 bg-yellow-950/20 px-2 py-2">
+                    <div className="text-sm font-semibold text-yellow-300">{webhookDeliverySummary.notSent}</div>
+                    <div className="text-[11px] text-yellow-500/80 mt-0.5">Not sent</div>
+                  </div>
+                </div>
+
+                {webhookDeliveries.length === 0 && (
+                  <div className="text-xs text-gray-500 bg-gray-900/30 border border-gray-800 rounded-lg px-3 py-2">
+                    No webhook notification activity has been recorded for this drift result.
+                  </div>
+                )}
+
+                {webhookDetailsOpen && webhookDeliveries.length > 0 && (
+                  <div className="space-y-2">
+                    {webhookDeliveries.map((item, idx) => {
+                      const statusTone = item.outcome === 'sent'
+                        ? 'bg-green-950/30 text-green-300 border-green-900/50'
+                        : item.outcome === 'failed'
+                          ? 'bg-red-950/30 text-red-300 border-red-900/50'
+                          : 'bg-yellow-950/30 text-yellow-300 border-yellow-900/50'
+                      const statusLabel = item.outcome === 'sent'
+                        ? 'Sent'
+                        : item.outcome === 'failed'
+                          ? 'Failed'
+                          : 'Not sent'
+                      return (
+                        <div key={`${item.webhookId || 'system'}-${idx}`} className="rounded-lg border border-gray-800 bg-gray-900/30 px-3 py-2 space-y-1.5">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <div className="text-xs text-gray-200 font-medium truncate">
+                              {item.webhookLabel || (item.webhookId ? `Webhook ${item.webhookId.slice(0, 8)}` : 'System event')}
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[11px] text-gray-500 border border-gray-800 px-1.5 py-0.5 rounded">
+                                {labelWebhookMode(item.fireMode)}
+                              </span>
+                              <span className={`text-[11px] border px-1.5 py-0.5 rounded ${statusTone}`}>
+                                {statusLabel}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-[11px] text-gray-500">
+                            {labelWebhookReason(item.reason)}
+                            {item.httpStatus ? ` · HTTP ${item.httpStatus}` : ''}
+                            {item.errorMessage ? ` · ${item.errorMessage}` : ''}
+                          </div>
+                          <div className="text-[11px] text-gray-600">{formatTimestamp(item.attemptedAt)}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             </>
           )}
 

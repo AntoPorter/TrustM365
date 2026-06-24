@@ -94,6 +94,20 @@ All live resources are listed. A yellow prompt explains how to set a baseline to
 
 All restore actions are logged immediately in the Restore Log tab and trigger an automatic re-pull of the area.
 
+### Webhook notification status
+
+When a drift result exists, the Configuration tab also shows a **Webhook Notification Status** panel for that specific drift check.
+
+![Area View webhook notification status panel](./visuals/guide-area-view-webhook-status.png)
+
+It includes:
+
+- **Attempted / Sent / Failed / Not sent** counters
+- **Last attempt** timestamp
+- Expandable **per-destination outcomes** with destination label, fire mode (First only / Every drift), outcome and reason, and HTTP status/error details for failures
+
+This panel is drift-specific and complements (not replaces) the destination-level last fired/last error fields shown in MSSP Settings.
+
 ---
 
 ## Restore Log tab

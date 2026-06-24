@@ -166,6 +166,8 @@ The lock clears automatically on the next sync once consent propagates.
 **Cause A:** Fire mode is **First detection only** and it already fired for this area — it will not fire again until the area resolves and drifts again.
 **Check:** The "Last fired" timestamp on the webhook card. If it is recent, the first-detection lock is in place.
 
+**Check (drift-specific):** In the affected area, open **Configuration → Webhook Notification Status** to confirm whether delivery was sent, failed, or intentionally not sent (for example `skipped_first_mode` or `disabled`).
+
 **Cause B:** The webhook destination is disabled.
 **Fix:** Click **Enable** on the destination card.
 

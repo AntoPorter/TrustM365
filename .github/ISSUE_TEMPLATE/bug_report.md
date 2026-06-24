@@ -17,7 +17,7 @@ A clear description of what is happening and what you expected to happen.
 ## Environment
 - OS: [e.g. Windows 11]
 - Node.js version: [run `node --version`]
-- TrustM365 version: [e.g. v1.0.0]
+- TrustM365 version: [e.g. v1.2.0]
 - Browser: [e.g. Chrome 123]
 
 ## Error output

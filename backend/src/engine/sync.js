@@ -2,7 +2,7 @@ const { v4: uuidv4 } = require('uuid');
 const { getDb } = require('../database/init');
 const { getAccessToken, evictClient } = require('../services/auth');
 const { resolveTenantAuthContext } = require('../services/tenantAuth');
-const { getCollector, LicenceUnavailableError } = require('../collectors');
+const { getCollector, LicenceUnavailableError, CollectorUnavailableError } = require('../collectors');
 const { computeDrift } = require('./drift');
 const { checkGrantedPermissions, buildAreaPermissionMap } = require('../services/permissions');
 const { COLLECTORS } = require('../collectors');
@@ -120,7 +120,7 @@ async function runSync(jobId) {
       // ── Fire webhooks for genuine drift ───────────────────────────────────
       if (drift.status === 'drifted' && drift.driftCount > 0) {
         const driftRow = { ...drift, drift_count: drift.driftCount, summary: JSON.stringify(drift.summary) };
-        fireWebhooksForDrift(tenant.id, job.areaKey, driftRow).catch(e =>
+        fireWebhooksForDrift(tenant.id, job.areaKey, driftRow, driftId).catch(e =>
           logger.warn({ e }, 'Webhook fire failed (non-fatal)')
         );
       } else if (drift.status === 'clean') {
@@ -210,12 +210,28 @@ async function runSync(jobId) {
     });
 
   } catch (err) {
-    if (err instanceof LicenceUnavailableError || err.code === 'LICENCE_UNAVAILABLE') {
+    if (
+      err instanceof LicenceUnavailableError ||
+      err instanceof CollectorUnavailableError ||
+      err.code === 'LICENCE_UNAVAILABLE' ||
+      err.code === 'COLLECTOR_UNAVAILABLE'
+    ) {
       db.prepare("UPDATE resource_areas SET last_pulled_at = ? WHERE tenant_id = ? AND area_key = ?")
         .run(new Date().toISOString(), tenant.id, job.areaKey);
+      const unavailableDriftId = uuidv4();
+      db.prepare('INSERT INTO drift_results (id,tenant_id,area_key,status,drift_count,summary,live_snapshot_id) VALUES (?,?,?,?,?,?,?)')
+        .run(
+          unavailableDriftId,
+          tenant.id,
+          job.areaKey,
+          'unavailable',
+          0,
+          JSON.stringify([{ status: 'unavailable', message: err.message }]),
+          null
+        );
       job.status = 'unavailable';
       job.error = err.message;
-      logger.info({ areaKey: job.areaKey, tenantId: tenant.tenant_id }, 'Area unavailable on this licence tier');
+      logger.info({ areaKey: job.areaKey, tenantId: tenant.tenant_id, reason: err.code || 'unknown' }, 'Area unavailable for current tenant context');
       emitSiemEvent('jobs', 'sync.job.unavailable', {
         jobId,
         tenantDbId: tenant.id,
