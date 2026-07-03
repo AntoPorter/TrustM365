@@ -862,7 +862,7 @@ export default function AreaView({ showToast, onSync }) {
     </div>
   )
 
-  const isLocked   = !(perm && perm.canRead)
+  const isLocked   = !area.isCustom && !(perm && perm.canRead)
   const canRestore = (perm && (perm.canRestore ?? perm.canWrite)) || false
   const restoreBlockedByCapability = perm?.restoreSupported === false
 
