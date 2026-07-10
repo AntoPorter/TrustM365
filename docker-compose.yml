@@ -11,7 +11,7 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
-      DATABASE_PATH: /data/trustm365.db
+      DATABASE_PATH: /app/data/trustm365.db
       PORT: "3001"
       NODE_ENV: production
       # Timezone for scheduled report generation (08:00 daily trigger).
@@ -19,11 +19,11 @@ services:
       # Examples: Australia/Perth, Australia/Sydney, America/New_York, Europe/London, UTC
       TZ: ${TZ:-UTC}
     volumes:
-      - trustm365-data:/data
+      - trustm365-data:/app/data
     networks:
       - internal
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3001/api/health"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3001/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
