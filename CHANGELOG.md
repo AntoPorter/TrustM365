@@ -4,6 +4,15 @@ All notable changes to TrustM365 are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.2.1] - 2026-08-28
+
+### Security
+
+- Patched dependency advisories affecting the current production build.
+- Updated frontend routing to the patched React Router release to remove the open redirect and constructor injection advisories.
+- Added explicit backend overrides to enforce patched transitive versions for `body-parser`, `brace-expansion`, and `nanoid`.
+- Re-ran package audit to confirm zero remaining vulnerabilities for the frontend and backend build.
+
 ## [1.2.0] - Unreleased
 
 ### Scope

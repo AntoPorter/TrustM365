@@ -1,6 +1,6 @@
 {
   "name": "trustm365",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "TrustM365 - M365 Baseline Drift Monitor",
   "scripts": {
     "start": "npm --prefix backend start",

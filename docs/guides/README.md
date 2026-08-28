@@ -2,7 +2,7 @@
 
 Step-by-step documentation for every component of TrustM365.
 
-> Documentation in this folder is aligned to TrustM365 v1.2.0.
+> Documentation in this folder is aligned to TrustM365 v1.2.1.
 
 ## Visual Quick Reference
 

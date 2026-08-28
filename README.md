@@ -6,7 +6,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License"></a>
   <a href="https://nodejs.org"><img src="https://img.shields.io/badge/Node.js-20%20LTS-green.svg" alt="Node.js 20 LTS"></a>
   <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome"></a>
-  <a href="https://github.com/AntoPorter/trustm365/releases"><img src="https://img.shields.io/badge/version-1.2.0-blue.svg" alt="Version 1.2.0"></a>
+  <a href="https://github.com/AntoPorter/trustm365/releases"><img src="https://img.shields.io/badge/version-1.2.1-blue.svg" alt="Version 1.2.1"></a>
 </p>
 
 ---

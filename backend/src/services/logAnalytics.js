@@ -138,7 +138,7 @@ async function emitSiemEvent(category, eventType, payload = {}, overrideSettings
     eventCategory: category,
     schemaVersion: settings.schemaVersion,
     sourcePlatform: 'TrustM365',
-    sourceVersion: '1.2.0',
+    sourceVersion: '1.2.1',
     ...payload,
   };
 
